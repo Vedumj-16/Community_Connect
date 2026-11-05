@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 
 import AdminDashboard from "./AdminDashboard";
@@ -47,6 +47,8 @@ const translations = {
     districtPlaceholder: "Choose district",
     pilot: "First pilot area: PCMC, Pune",
     explore: "Explore",
+    home: "Home",
+    back: "← Back to Home",
     independent:
       "Community Connect is an independent citizen-support platform, not an official government portal."
   },
@@ -76,6 +78,8 @@ const translations = {
     districtPlaceholder: "जिल्हा निवडा",
     pilot: "पहिले पायलट क्षेत्र: PCMC, पुणे",
     explore: "पहा",
+    home: "मुख्यपृष्ठ",
+    back: "← मुख्यपृष्ठावर परत जा",
     independent:
       "कम्युनिटी कनेक्ट हे स्वतंत्र नागरिक सहाय्य प्लॅटफॉर्म आहे. हे अधिकृत सरकारी पोर्टल नाही."
   },
@@ -106,27 +110,61 @@ const translations = {
     districtPlaceholder: "जिला चुनें",
     pilot: "पहला पायलट क्षेत्र: PCMC, पुणे",
     explore: "देखें",
+    home: "होम",
+    back: "← होम पेज पर वापस जाएं",
     independent:
       "कम्युनिटी कनेक्ट एक स्वतंत्र नागरिक सहायता प्लेटफॉर्म है, आधिकारिक सरकारी पोर्टल नहीं।"
   }
 };
 
 const serviceCards = [
-  { key: "schemes", icon: "🏠", color: "green" },
-  { key: "eligibility", icon: "📋", color: "blue" },
-  { key: "report", icon: "📢", color: "orange" },
-  { key: "track", icon: "🔎", color: "purple" }
+  { key: "schemes", icon: "🏠", color: "green", path: "/schemes" },
+  { key: "eligibility", icon: "📋", color: "blue", path: "/eligibility" },
+  { key: "report", icon: "📢", color: "orange", path: "/report" },
+  { key: "track", icon: "🔎", color: "purple", path: "/track" }
 ];
+
+const getPageFromPath = () => {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+
+  const pages = {
+    "/": "home",
+    "/schemes": "schemes",
+    "/eligibility": "eligibility",
+    "/report": "report",
+    "/track": "track",
+    "/admin": "admin"
+  };
+
+  return pages[path] || "home";
+};
 
 function App() {
   const [language, setLanguage] = useState("en");
-  const [activeService, setActiveService] = useState(null);
   const [district, setDistrict] = useState("Pune");
+  const [currentPage, setCurrentPage] = useState(getPageFromPath);
 
-  // Separate admin page. It is not shown on the citizen homepage.
-  const currentPath = window.location.pathname.replace(/\/+$/, "");
+  // Keep the page updated when browser Back/Forward is used.
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPage(getPageFromPath());
+    };
 
-  if (currentPath === "/admin") {
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  // Navigate within the same website and browser tab.
+  const navigate = (page, path) => {
+    window.history.pushState({}, "", path);
+    setCurrentPage(page);
+    window.scrollTo(0, 0);
+  };
+
+  if (currentPage === "admin") {
     return <AdminDashboard />;
   }
 
@@ -146,11 +184,19 @@ function App() {
     track: t.trackDesc
   };
 
+  const selectedCard = serviceCards.find(
+    (card) => card.key === currentPage
+  );
+
   return (
     <div className="app">
       {/* NAVIGATION BAR */}
       <header className="navbar">
-        <div className="brand">
+        <div
+          className="brand"
+          onClick={() => navigate("home", "/")}
+          style={{ cursor: "pointer" }}
+        >
           <span className="brand-icon">🏙️</span>
           <div>
             <h2>Community Connect</h2>
@@ -173,115 +219,183 @@ function App() {
       </header>
 
       <main>
-        {/* HERO SECTION */}
-        <section className="hero">
-          <div className="hero-content">
-            <span className="location-tag">
-              📍 Maharashtra, India
-            </span>
-
-            <h1>{t.welcome}</h1>
-            <p className="tagline">{t.tagline}</p>
-            <p className="hero-description">{t.description}</p>
-
-            <button
-              className="primary-button"
-              onClick={() => setActiveService("schemes")}
-            >
-              {t.schemes} →
-            </button>
-          </div>
-
-          <div className="hero-illustration">🏘️</div>
-        </section>
-
-        {/* DISTRICT SELECTOR */}
-        <section className="district-section">
-          <div className="district-control">
-            <label htmlFor="district">
-              📍 {t.districtLabel}
-            </label>
-
-            <select
-              id="district"
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-            >
-              {districts.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <span className="pilot-label">{t.pilot}</span>
-        </section>
-
-        {/* MAIN SERVICES */}
-        <section className="services-section">
-          <div className="section-heading">
-            <span className="small-label">WHAT WE OFFER</span>
-            <h2>{t.services}</h2>
-          </div>
-
-          <div className="service-grid">
-            {serviceCards.map((card) => (
-              <button
-                className={`service-card ${card.color}`}
-                key={card.key}
-                onClick={() => setActiveService(card.key)}
-              >
-                <span className="service-icon">{card.icon}</span>
-                <h3>{serviceNames[card.key]}</h3>
-                <p>{serviceDescriptions[card.key]}</p>
-                <span className="card-link">
-                  {t.explore} →
+        {currentPage === "home" ? (
+          <>
+            {/* HERO SECTION */}
+            <section className="hero">
+              <div className="hero-content">
+                <span className="location-tag">
+                  📍 Maharashtra, India
                 </span>
+
+                <h1>{t.welcome}</h1>
+                <p className="tagline">{t.tagline}</p>
+                <p className="hero-description">
+                  {t.description}
+                </p>
+
+                <button
+                  className="primary-button"
+                  onClick={() => navigate("schemes", "/schemes")}
+                >
+                  {t.schemes} →
+                </button>
+              </div>
+
+              <div className="hero-illustration">🏘️</div>
+            </section>
+
+            {/* DISTRICT SELECTOR */}
+            <section className="district-section">
+              <div className="district-control">
+                <label htmlFor="district">
+                  📍 {t.districtLabel}
+                </label>
+
+                <select
+                  id="district"
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
+                >
+                  {districts.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <span className="pilot-label">{t.pilot}</span>
+            </section>
+
+            {/* MAIN SERVICES */}
+            <section className="services-section">
+              <div className="section-heading">
+                <span className="small-label">WHAT WE OFFER</span>
+                <h2>{t.services}</h2>
+              </div>
+
+              <div className="service-grid">
+                {serviceCards.map((card) => (
+                  <button
+                    className={`service-card ${card.color}`}
+                    key={card.key}
+                    onClick={() => navigate(card.key, card.path)}
+                  >
+                    <span className="service-icon">
+                      {card.icon}
+                    </span>
+
+                    <h3>{serviceNames[card.key]}</h3>
+                    <p>{serviceDescriptions[card.key]}</p>
+
+                    <span className="card-link">
+                      {t.explore} →
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* COMMUNITY UPDATES */}
+            <section className="updates-section">
+              <div>
+                <span className="small-label">STAY INFORMED</span>
+                <h2>{t.updates}</h2>
+                <p>{t.updateText}</p>
+              </div>
+
+              <span className="updates-icon">📍</span>
+            </section>
+          </>
+        ) : (
+          <>
+            {/* INDIVIDUAL SERVICE PAGE */}
+            <section className="services-section">
+
+              {/* ONLY ONE BACK TO HOME BUTTON */}
+              <button
+                className="secondary-button"
+                onClick={() => navigate("home", "/")}
+              >
+                {t.back}
               </button>
-            ))}
-          </div>
-        </section>
 
-        {/* SELECTED SERVICE */}
-        {activeService === "schemes" ? (
-          <SchemeFinder
-            language={language}
-            selectedDistrict={district}
-          />
-        ) : activeService === "eligibility" ? (
-          <EligibilityChecker
-            language={language}
-            selectedDistrict={district}
-          />
-        ) : activeService === "report" ? (
-          <ReportProblem
-            key={district}
-            selectedDistrict={district}
-          />
-        ) : activeService === "track" ? (
-          <TrackComplaints />
-        ) : null}
+              <div className="section-heading">
+                <span className="small-label">
+                  COMMUNITY CONNECT SERVICES
+                </span>
 
-        {activeService && (
-          <button
-            className="secondary-button"
-            onClick={() => setActiveService(null)}
-          >
-            ← Back to Home
-          </button>
+                <h2>
+                  {selectedCard
+                    ? serviceNames[currentPage]
+                    : "Community Connect"}
+                </h2>
+
+                <p>
+                  {selectedCard
+                    ? serviceDescriptions[currentPage]
+                    : ""}
+                </p>
+              </div>
+
+              {/* DISTRICT SELECTOR FOR RELEVANT SERVICES */}
+              {["schemes", "eligibility", "report"].includes(
+                currentPage
+              ) && (
+                <section className="district-section">
+                  <div className="district-control">
+                    <label htmlFor="service-district">
+                      📍 {t.districtLabel}
+                    </label>
+
+                    <select
+                      id="service-district"
+                      value={district}
+                      onChange={(e) => setDistrict(e.target.value)}
+                    >
+                      {districts.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </section>
+              )}
+
+              {/* GOVERNMENT SCHEME FINDER */}
+              {currentPage === "schemes" && (
+                <SchemeFinder
+                  language={language}
+                  selectedDistrict={district}
+                />
+              )}
+
+              {/* ELIGIBILITY CHECKER */}
+              {currentPage === "eligibility" && (
+                <EligibilityChecker
+                  language={language}
+                  selectedDistrict={district}
+                />
+              )}
+
+              {/* REPORT A PROBLEM */}
+              {currentPage === "report" && (
+                <ReportProblem
+                  key={district}
+                  selectedDistrict={district}
+                />
+              )}
+
+              {/* TRACK COMPLAINTS */}
+              {currentPage === "track" && (
+                <TrackComplaints />
+              )}
+
+            </section>
+          </>
         )}
-
-        {/* COMMUNITY UPDATES */}
-        <section className="updates-section">
-          <div>
-            <span className="small-label">STAY INFORMED</span>
-            <h2>{t.updates}</h2>
-            <p>{t.updateText}</p>
-          </div>
-
-          <span className="updates-icon">📍</span>
-        </section>
 
         <p className="independent-note">{t.independent}</p>
       </main>
